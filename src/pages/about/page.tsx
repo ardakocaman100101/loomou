@@ -25,7 +25,7 @@ export default function AboutPage() {
 
   return (
     <div
-      className={`min-h-screen font-['Inter',sans-serif] overflow-x-hidden transition-colors duration-500 ${
+      className={`min-h-screen overflow-x-hidden transition-colors duration-500 ${
         isDarkMode
           ? 'bg-[#101223] text-[#F4F5F8] selection:bg-[#7569EC]/40'
           : 'bg-[#F6F7FB] text-[#24273A] selection:bg-[#6E61EA]/25'
@@ -73,7 +73,7 @@ export default function AboutPage() {
             <div className="flex items-center gap-3 pb-2">
               <Logo height={32} width={52} className="h-8 w-auto aspect-[5/3]" />
               <h2
-                className={`font-['Space_Grotesk',sans-serif] text-2xl font-black tracking-tight transition-colors sm:text-3xl ${
+                className={`font-display text-2xl font-black tracking-tight transition-colors sm:text-3xl ${
                   isDarkMode ? 'text-[#F4F5F8]' : 'text-[#24273A]'
                 }`}
               >
@@ -149,7 +149,7 @@ export default function AboutPage() {
                 <BookOpen className="h-5 w-5" />
               </div>
               <h2
-                className={`font-['Space_Grotesk',sans-serif] text-2xl font-black tracking-tight transition-colors sm:text-3xl ${
+                className={`font-display text-2xl font-black tracking-tight transition-colors sm:text-3xl ${
                   isDarkMode ? 'text-[#F4F5F8]' : 'text-[#24273A]'
                 }`}
               >
@@ -196,7 +196,7 @@ export default function AboutPage() {
                     <Users className="h-4.5 w-4.5" />
                   </div>
                   <h3
-                    className={`font-['Space_Grotesk',sans-serif] text-xl font-black tracking-tight sm:text-2xl ${
+                    className={`font-display text-xl font-black tracking-tight sm:text-2xl ${
                       isDarkMode ? 'text-[#F4F5F8]' : 'text-[#24273A]'
                     }`}
                   >
@@ -247,7 +247,7 @@ export default function AboutPage() {
                     <MessageSquareHeart className="h-4.5 w-4.5" />
                   </div>
                   <h3
-                    className={`font-['Space_Grotesk',sans-serif] text-xl font-black tracking-tight sm:text-2xl ${
+                    className={`font-display text-xl font-black tracking-tight sm:text-2xl ${
                       isDarkMode ? 'text-[#F4F5F8]' : 'text-[#24273A]'
                     }`}
                   >
@@ -314,7 +314,7 @@ function Navbar({
               className="h-[62px] w-auto aspect-[5/3] drop-shadow-[0_0_22px_rgba(110,97,234,0.5)] transition-transform duration-300 group-hover:scale-105"
             />
             <span
-              className={`font-['Space_Grotesk',sans-serif] text-4xl leading-none font-black tracking-[-0.03em] transition-all sm:text-5xl ${
+              className={`font-brand text-4xl leading-none font-semibold tracking-tight transition-all sm:text-5xl ${
                 isDarkMode
                   ? 'text-[#F4F5F8]'
                   : 'bg-gradient-to-b from-[#181028] via-[#331559] to-[#633BB9] bg-clip-text text-transparent'

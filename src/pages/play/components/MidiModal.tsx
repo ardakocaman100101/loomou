@@ -39,7 +39,7 @@ export function MidiModal(props: MidiModalProps) {
   return (
     <Modal show={isOpen} onClose={onClose}>
       <div className="relative flex w-[min(100vw,500px)] flex-col p-8 text-base">
-        <h1 className="text-3xl font-bold">Connect Your Piano</h1>
+        <h1 className="font-display text-3xl font-bold">Connect Your Piano</h1>
         <Sizer height={32} />
         <div className="flex gap-3">
           <h1 className="text-lg font-medium">Input devices</h1>

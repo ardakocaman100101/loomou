@@ -57,7 +57,7 @@ export default function SongPreviewModal({
     <Modal show={show && !!id} onClose={handleClose} className="min-w-[min(100%,600px)]">
       <div className="flex flex-col gap-3 p-8">
         <div className="flex w-full flex-col whitespace-nowrap">
-          <span className="text-2xl font-semibold">Preview your recording</span>
+          <span className="font-display text-2xl font-semibold">Preview your recording</span>
           {/* <span className="overflow-hidden text-base text-gray-500"></span> */}
         </div>
         <div className="flex grow flex-col overflow-hidden rounded-md">

@@ -838,7 +838,7 @@ export default function PlaySongPage() {
               className="relative flex flex-col items-center justify-center"
             >
               <div className="flex h-36 w-36 items-center justify-center rounded-full border border-white/20 bg-[#1A1D2D]/90 shadow-[0_0_80px_rgba(117,105,236,0.65),inset_0_1px_1px_rgba(255,255,255,0.4)] backdrop-blur-2xl sm:h-40 sm:w-40">
-                <span className="font-['Space_Grotesk',sans-serif] text-7xl font-black tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)] sm:text-8xl">
+                <span className="font-display text-7xl font-black tracking-tighter text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.8)] sm:text-8xl">
                   {countdown}
                 </span>
               </div>

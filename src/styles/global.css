@@ -2,8 +2,12 @@
 
 :root {
   --loomo-font-family:
-    system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
-    'Noto Color Emoji';
+    'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+  --loomo-font-display:
+    'Sora', 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --loomo-font-brand:
+    'Baloo 2', 'Sora', cursive, system-ui, sans-serif;
   font-family: var(--loomo-font-family);
 }
 
@@ -59,6 +63,8 @@
   --color-card-foreground: hsl(var(--card-foreground));
 
   --font-sans: var(--loomo-font-family);
+  --font-display: var(--loomo-font-display);
+  --font-brand: var(--loomo-font-brand);
 }
 
 /*

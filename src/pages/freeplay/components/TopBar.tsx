@@ -29,7 +29,7 @@ export default function TopBar({ onClickBack, onClickHome, onClickMidi }: TopBar
             width={90}
             className="h-[54px] w-auto aspect-[5/3] cursor-pointer drop-shadow-[0_0_15px_rgba(160,120,255,0.3)] transition-all group-hover:scale-105 sm:h-[60px]"
           />
-          <span className="cursor-pointer text-2xl font-black tracking-tighter text-[#e5e2e1] transition-all group-hover:text-[#d0bcff] sm:text-4xl">
+          <span className="font-brand cursor-pointer text-2xl font-bold tracking-tight text-[#e5e2e1] transition-all group-hover:text-[#d0bcff] sm:text-4xl">
             loomou
           </span>
         </Link>

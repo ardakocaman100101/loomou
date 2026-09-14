@@ -293,7 +293,7 @@ export default function CompletionModal({
             <span className="flex size-8 items-center justify-center rounded-xl loomo-gradient text-white shadow-sm shadow-[#6c79f0]/20">
               <Trophy className="size-4" strokeWidth={2.2} />
             </span>
-            <h1 className="text-lg font-black tracking-tight text-gray-900">
+            <h1 className="font-display text-lg font-black tracking-tight text-gray-900">
               Scoreboard
             </h1>
           </div>
@@ -316,7 +316,7 @@ export default function CompletionModal({
             <div className="mb-2 flex items-end justify-between">
               <div>
                 <p className="label-caps text-[#6c79f0] select-none">Accuracy</p>
-                <p className="text-4xl font-black leading-none tracking-tight text-gray-900 mt-0.5">
+                <p className="font-display text-4xl font-black leading-none tracking-tight text-gray-900 mt-0.5">
                   {accuracy}
                   <span className="text-2xl font-bold text-gray-400 ml-0.5">%</span>
                 </p>
@@ -343,7 +343,7 @@ export default function CompletionModal({
             <div className="mb-2 flex items-end justify-between">
               <div>
                 <p className="label-caps text-[#6c79f0] select-none">Rhythm</p>
-                <p className="text-4xl font-black leading-none tracking-tight text-gray-900 mt-0.5">
+                <p className="font-display text-4xl font-black leading-none tracking-tight text-gray-900 mt-0.5">
                   {currentDurationScore}
                   <span className="text-2xl font-bold text-gray-400 ml-0.5">%</span>
                 </p>

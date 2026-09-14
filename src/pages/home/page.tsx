@@ -31,7 +31,7 @@ export default function Home() {
 
   return (
     <div
-      className={`min-h-screen font-['Inter',sans-serif] overflow-x-hidden transition-colors duration-500 ${isDarkMode
+      className={`min-h-screen overflow-x-hidden transition-colors duration-500 ${isDarkMode
           ? 'bg-[#101223] text-[#F4F5F8] selection:bg-[#7569EC]/40'
           : 'bg-[#F6F7FB] text-[#24273A] selection:bg-[#6E61EA]/25'
         }`}
@@ -112,7 +112,7 @@ function Navbar({
               className="h-[62px] w-auto aspect-[5/3] drop-shadow-[0_0_22px_rgba(110,97,234,0.5)] transition-transform duration-300 group-hover:scale-105"
             />
             <span
-              className={`font-['Space_Grotesk',sans-serif] text-4xl leading-none font-black tracking-[-0.03em] transition-all sm:text-5xl ${isDarkMode
+              className={`font-brand text-4xl leading-none font-semibold tracking-tight transition-all sm:text-5xl ${isDarkMode
                   ? 'text-[#F4F5F8]'
                   : 'bg-gradient-to-b from-[#181028] via-[#331559] to-[#633BB9] bg-clip-text text-transparent'
                 }`}
@@ -240,7 +240,7 @@ function Hero({ isDarkMode }: { isDarkMode: boolean }) {
         className="space-y-4"
       >
         <div
-          className={`mb-2 flex w-full items-center justify-center gap-[0.35em] font-['Space_Grotesk',sans-serif] text-base font-bold tracking-[0.28em] uppercase select-none transition-colors sm:text-lg md:text-xl ${isDarkMode ? 'text-[#A2A3B1]' : 'text-[#484C66]'
+          className={`mb-2 flex w-full items-center justify-center gap-[0.35em] font-display text-base font-bold tracking-[0.28em] uppercase select-none transition-colors sm:text-lg md:text-xl ${isDarkMode ? 'text-[#A2A3B1]' : 'text-[#484C66]'
             }`}
         >
           <motion.span layout>just</motion.span>
@@ -277,7 +277,7 @@ function Hero({ isDarkMode }: { isDarkMode: boolean }) {
 
         {/* Main loomou Title */}
         <h1
-          className={`font-['Space_Grotesk',sans-serif] bg-clip-text text-7xl leading-none font-black tracking-[-0.035em] text-transparent transition-all sm:text-8xl md:text-9xl ${isDarkMode
+          className={`font-brand bg-clip-text text-7xl leading-none font-semibold tracking-tight text-transparent transition-all sm:text-8xl md:text-9xl ${isDarkMode
               ? 'bg-gradient-to-b from-[#FFFFFF] via-[#F4F5F8] to-[#888A95]'
               : 'bg-gradient-to-b from-[#181028] via-[#331559] to-[#633BB9]'
             }`}
@@ -287,7 +287,7 @@ function Hero({ isDarkMode }: { isDarkMode: boolean }) {
 
         {/* Subtitle (20% bigger & 20% higher contrast studio gray) */}
         <p
-          className={`mx-auto max-w-2xl font-['Inter',sans-serif] text-lg leading-relaxed font-normal transition-colors sm:text-xl md:text-[22px] ${isDarkMode ? 'text-[#B6B8C6]' : 'text-[#444860]'
+          className={`mx-auto max-w-2xl text-lg leading-relaxed font-normal transition-colors sm:text-xl md:text-[22px] ${isDarkMode ? 'text-[#B6B8C6]' : 'text-[#444860]'
             }`}
         >
           Play or remix your favorite songs in just weeks. With loomou AI by your side, you can easily teach yourself without any prior experience
@@ -472,7 +472,7 @@ function FeatureCarousel({ isDarkMode }: { isDarkMode: boolean }) {
               </div>
 
               <h3
-                className={`font-['Space_Grotesk',sans-serif] text-3xl font-black tracking-tight transition-colors sm:text-4xl md:text-5xl ${isDarkMode ? 'text-[#F4F5F8]' : 'text-[#24273A]'
+                className={`font-display text-3xl font-black tracking-tight transition-colors sm:text-4xl md:text-5xl ${isDarkMode ? 'text-[#F4F5F8]' : 'text-[#24273A]'
                   }`}
               >
                 {slide.title}
