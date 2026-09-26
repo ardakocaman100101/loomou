@@ -86,8 +86,10 @@ export class Player {
   currentSongTime = 0
   volume = atom(0.3)
   instrumentVolume = atom(1)
+  backgroundVolume = atom(0.8)
   lastNonZeroVolume = 0.3
   lastNonZeroInstrumentVolume = 1
+  lastNonZeroBackgroundVolume = 0.8
   songLoop = atom(false)
 
   // TODO: Determine if MIDI always assumes BPM means quarter notes per minute.
@@ -401,15 +403,30 @@ export class Player {
     trackAudioEngine.setKeyboardVolume(vol)
   }
 
+  setBackgroundVolume(vol: number) {
+    if (vol > 0) {
+      this.lastNonZeroBackgroundVolume = vol
+    }
+    this.store.set(this.backgroundVolume, vol)
+    trackAudioEngine.setBackgroundVolume(vol)
+  }
+
+  setBackgroundTracks(trackIds: number[]) {
+    trackAudioEngine.setBackgroundTracks(trackIds)
+  }
+
   toggleMute() {
     const currentVol = this.store.get(this.volume)
     const currentInstVol = this.store.get(this.instrumentVolume)
-    if (currentVol === 0 && currentInstVol === 0) {
+    const currentBgVol = this.store.get(this.backgroundVolume)
+    if (currentVol === 0 && currentInstVol === 0 && currentBgVol === 0) {
       this.setVolume(this.lastNonZeroVolume || 0.3)
       this.setInstrumentVolume(this.lastNonZeroInstrumentVolume || 1)
+      this.setBackgroundVolume(this.lastNonZeroBackgroundVolume || 0.8)
     } else {
       this.setVolume(0)
       this.setInstrumentVolume(0)
+      this.setBackgroundVolume(0)
     }
   }
 

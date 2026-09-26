@@ -13,6 +13,16 @@ type CompletionModalProps = {
   onClose: () => void
   onReplay: () => void
   onPracticeRecommended?: (segment: PracticeSegment) => void
+  aggregatedMetrics?: {
+    accuracy: number
+    perfect: number
+    early: number
+    late: number
+    good: number
+    miss: number
+    streak: number
+    trackCount: number
+  } | null
 }
 
 export default function CompletionModal({
@@ -20,6 +30,7 @@ export default function CompletionModal({
   onClose,
   onReplay,
   onPracticeRecommended,
+  aggregatedMetrics,
 }: CompletionModalProps) {
   const player = usePlayer()
   const song = player.getSong()
@@ -51,12 +62,19 @@ export default function CompletionModal({
     return () => clearInterval(timer)
   }, [aiFeedback])
 
-  const accuracy = useAtomValue(player.score.accuracy)
-  const perfect = useAtomValue(player.score.perfect)
-  const early = useAtomValue(player.score.early)
-  const late = useAtomValue(player.score.late)
-  const miss = useAtomValue(player.score.miss)
-  const streak = useAtomValue(player.score.streak)
+  const atomAccuracy = useAtomValue(player.score.accuracy)
+  const atomPerfect = useAtomValue(player.score.perfect)
+  const atomEarly = useAtomValue(player.score.early)
+  const atomLate = useAtomValue(player.score.late)
+  const atomMiss = useAtomValue(player.score.miss)
+  const atomStreak = useAtomValue(player.score.streak)
+
+  const accuracy = aggregatedMetrics ? aggregatedMetrics.accuracy : atomAccuracy
+  const perfect = aggregatedMetrics ? aggregatedMetrics.perfect : atomPerfect
+  const early = aggregatedMetrics ? aggregatedMetrics.early : atomEarly
+  const late = aggregatedMetrics ? aggregatedMetrics.late : atomLate
+  const miss = aggregatedMetrics ? aggregatedMetrics.miss : atomMiss
+  const streak = aggregatedMetrics ? aggregatedMetrics.streak : atomStreak
 
   // 1. Independent Practice Segment Detection Effect
   useEffect(() => {
@@ -151,7 +169,11 @@ export default function CompletionModal({
         timeSignature: song.timeSignature || { numerator: 4, denominator: 4 },
         bpm: Math.round(typeof player.currentBpm === 'number' ? player.currentBpm : 120),
         playbackSpeed: (player as any).getPlaybackSpeed ? (player as any).getPlaybackSpeed() : 1.0,
-        activeTracks: Object.keys(song.tracks || {}).length > 1 ? 'Multiple Tracks' : 'Solo Track',
+        activeTracks: aggregatedMetrics
+          ? `Play by Track Session (${aggregatedMetrics.trackCount} Tracks Aggregated)`
+          : Object.keys(song.tracks || {}).length > 1
+            ? 'Multiple Tracks'
+            : 'Solo Track',
       },
       hitMetrics: {
         accuracy,
@@ -195,7 +217,7 @@ export default function CompletionModal({
       // Instantly cancel AI feedback generation if modal is closed
       aiAbortController.abort()
     }
-  }, [isOpen, song, player, accuracy, perfect, early, late, miss, streak])
+  }, [isOpen, song, player, accuracy, perfect, early, late, miss, streak, aggregatedMetrics])
 
   if (!isOpen || !song) return null
 

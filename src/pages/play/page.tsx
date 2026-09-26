@@ -16,7 +16,7 @@ import {
   useWakeLock,
 } from '@/hooks'
 import { MidiStateEvent, SongSource } from '@/types'
-import { formatTime } from '@/utils'
+import { formatInstrumentName, formatTime } from '@/utils'
 import clsx from 'clsx'
 import { useAtomValue } from 'jotai'
 import {
@@ -35,7 +35,8 @@ import {
 } from '@/icons'
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
-import { CompletionModal, TopBar, TrackHUD } from './components'
+import { CompletionModal, InterTrackScorecard, TopBar, TrackHUD } from './components'
+import type { TrackPerformanceMetrics } from './components/InterTrackScorecard'
 import { MidiModal } from './components/MidiModal'
 import { StatsPopup } from './components/StatsPopup'
 import { ButtonWithTooltip } from './components/TopBar'
@@ -201,6 +202,28 @@ export default function PlaySongPage() {
   const requiresPermission = useAtomValue(requiresPermissionAtom)
   const songLoop = useAtomValue(player.songLoop)
 
+  // Play by Track State
+  const initialPlayByTrack =
+    searchParams.get('playByTrack') === 'true' || searchParams.get('playByTrack') === '1'
+  const [isPlayByTrack, setIsPlayByTrack] = useState(initialPlayByTrack)
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0)
+  const [trackScores, setTrackScores] = useState<Record<number, TrackPerformanceMetrics>>({})
+  const [isInterTrackScorecardOpen, setIsInterTrackScorecardOpen] = useState(false)
+  const [hasDismissedTrackScorecard, setHasDismissedTrackScorecard] = useState(false)
+  const [currentTrackMetrics, setCurrentTrackMetrics] = useState<TrackPerformanceMetrics | null>(null)
+
+  const availableTracks = useMemo(() => {
+    if (!song) return []
+    const withNotes = Object.keys(song.tracks)
+      .map(Number)
+      .filter((tId) => song.notes.some((n) => n.track === tId))
+      .sort((a, b) => a - b)
+    if (withNotes.length > 0) return withNotes
+    return Object.keys(song.tracks).map(Number).sort((a, b) => a - b)
+  }, [song])
+
+  const hasMultipleTracks = availableTracks.length > 1
+
   const [songConfig, setSongConfig] = useSongSettings(id)
   const isRecording = !!recording
   useWakeLock()
@@ -260,6 +283,10 @@ export default function PlaySongPage() {
           !isCompletedModalOpen &&
           !hasDismissedModal
         ) {
+          if (isPlayByTrack) {
+            // In Play by Track mode, the InterTrackScorecard handles progression
+            return
+          }
           setIsCompletedModalOpen(true)
           player.pause()
         }
@@ -267,7 +294,7 @@ export default function PlaySongPage() {
     }, 250)
 
     return () => clearInterval(checkCompletion)
-  }, [player, song, isCompletedModalOpen, hasDismissedModal])
+  }, [player, song, isCompletedModalOpen, hasDismissedModal, isPlayByTrack])
 
   const handleCloseCompletionModal = () => {
     setIsCompletedModalOpen(false)
@@ -346,6 +373,35 @@ export default function PlaySongPage() {
       }
     }
 
+    const isPlayByTrackParam =
+      searchParams.get('playByTrack') === 'true' || searchParams.get('playByTrack') === '1'
+    if (isPlayByTrackParam) {
+      const trackIds = Object.keys(config.tracks)
+        .map(Number)
+        .sort((a, b) => a - b)
+      if (trackIds.length > 0) {
+        const updatedTracks = { ...config.tracks }
+        trackIds.forEach((trackId, idx) => {
+          const isTarget = idx === 0
+          const existingHand = updatedTracks[trackId]?.hand
+          updatedTracks[trackId] = {
+            ...updatedTracks[trackId],
+            practice: isTarget,
+            sound: isTarget,
+            hand: isTarget
+              ? existingHand && existingHand !== 'none'
+                ? existingHand
+                : 'right'
+              : 'none',
+          }
+        })
+        config = {
+          ...config,
+          tracks: updatedTracks,
+        }
+      }
+    }
+
     setSongConfig(config)
     player.setSong(song, config)
 
@@ -364,6 +420,210 @@ export default function PlaySongPage() {
       player.store.set(player.progressiveMode, false)
     }
   }, [song, setSongConfig, id, player, songMeta?.title, searchParams])
+
+  // Apply Play-by-Track routing to songConfig.tracks whenever isPlayByTrack or currentTrackIndex changes
+  useEffect(() => {
+    if (!song || !isPlayByTrack || availableTracks.length === 0) {
+      if (!isPlayByTrack) {
+        player.setBackgroundTracks([])
+      }
+      return
+    }
+
+    const backgroundTrackIds = availableTracks.slice(0, currentTrackIndex)
+    player.setBackgroundTracks(backgroundTrackIds)
+
+    setSongConfig((prev) => {
+      const updatedTracks = { ...prev.tracks }
+      availableTracks.forEach((trackId, idx) => {
+        const isTarget = idx === currentTrackIndex
+        const isAccompaniment = idx < currentTrackIndex
+        const existingHand = updatedTracks[trackId]?.hand
+
+        updatedTracks[trackId] = {
+          ...updatedTracks[trackId],
+          practice: isTarget,
+          sound: isTarget || isAccompaniment,
+          hand: isTarget
+            ? existingHand && existingHand !== 'none'
+              ? existingHand
+              : 'right'
+            : 'none',
+        }
+      })
+      return {
+        ...prev,
+        tracks: updatedTracks,
+      }
+    })
+  }, [isPlayByTrack, currentTrackIndex, availableTracks, song, player, setSongConfig])
+
+  const calculateTrackMetrics = React.useCallback(
+    (targetTrackId: number): TrackPerformanceMetrics => {
+      if (!song) {
+        return {
+          accuracy: 100,
+          perfect: 0,
+          early: 0,
+          late: 0,
+          good: 0,
+          miss: 0,
+          streak: 0,
+          totalNotes: 0,
+          hits: 0,
+        }
+      }
+
+      const targetNotes = song.notes.filter((n) => n.track === targetTrackId)
+      const perfectHits = targetNotes.filter(
+        (n) => player.hitNotes.has(n) && n.feedbackColor === 'green',
+      ).length
+      const earlyHits = targetNotes.filter(
+        (n) => player.hitNotes.has(n) && n.feedbackColor === 'yellow',
+      ).length
+      const lateHits = targetNotes.filter(
+        (n) => player.hitNotes.has(n) && n.feedbackColor === 'purple',
+      ).length
+      const goodHits = earlyHits + lateHits
+      const missHits = targetNotes.filter((n) => player.missedNotes.has(n)).length
+      const totalHits = perfectHits + goodHits
+      const totalEvaluated = totalHits + missHits
+      const trackAccuracy =
+        totalEvaluated > 0
+          ? Math.round(((perfectHits + 0.5 * goodHits) / totalEvaluated) * 100)
+          : 100
+      const trackStreak = player.store.get(player.score.streak)
+
+      return {
+        accuracy: trackAccuracy,
+        perfect: perfectHits,
+        early: earlyHits,
+        late: lateHits,
+        good: goodHits,
+        miss: missHits,
+        streak: trackStreak,
+        totalNotes: targetNotes.length,
+        hits: totalHits,
+      }
+    },
+    [song, player],
+  )
+
+  // In Play-by-Track mode: monitor track completion to trigger InterTrackScorecard
+  useEffect(() => {
+    if (!isPlayByTrack || !song || availableTracks.length === 0) return
+
+    const targetTrackId = availableTracks[currentTrackIndex]
+    const targetNotes = song.notes.filter((n) => n.track === targetTrackId)
+    const lastNote = targetNotes[targetNotes.length - 1]
+    const trackDuration = lastNote
+      ? lastNote.time + lastNote.duration
+      : player.getDuration()
+    const trackEndTime = Math.min(player.getDuration() - 0.15, trackDuration + 0.6)
+
+    const checkTrackEnd = setInterval(() => {
+      if (
+        player &&
+        player.isPlaying() &&
+        player.currentSongTime >= trackEndTime &&
+        !isInterTrackScorecardOpen &&
+        !hasDismissedTrackScorecard
+      ) {
+        player.pause()
+        const metrics = calculateTrackMetrics(targetTrackId)
+        setCurrentTrackMetrics(metrics)
+        setTrackScores((prev) => ({
+          ...prev,
+          [targetTrackId]: metrics,
+        }))
+        setIsInterTrackScorecardOpen(true)
+      }
+    }, 200)
+
+    return () => clearInterval(checkTrackEnd)
+  }, [
+    isPlayByTrack,
+    song,
+    availableTracks,
+    currentTrackIndex,
+    isInterTrackScorecardOpen,
+    hasDismissedTrackScorecard,
+    player,
+    calculateTrackMetrics,
+  ])
+
+  const handlePlayAgain = React.useCallback(() => {
+    setIsInterTrackScorecardOpen(false)
+    setHasDismissedTrackScorecard(false)
+    player.pause()
+    player.seek(0)
+    player.resetStats_()
+    player.play({ forceCountIn: true })
+  }, [player])
+
+  const handleNextTrack = React.useCallback(() => {
+    setIsInterTrackScorecardOpen(false)
+    setHasDismissedTrackScorecard(false)
+    if (currentTrackIndex < availableTracks.length - 1) {
+      setCurrentTrackIndex((prev) => prev + 1)
+    }
+    player.pause()
+    player.seek(0)
+    player.resetStats_()
+    player.play({ forceCountIn: true })
+  }, [currentTrackIndex, availableTracks.length, player])
+
+  const handleSelectTrack = React.useCallback(
+    (trackIndex: number) => {
+      setIsInterTrackScorecardOpen(false)
+      setHasDismissedTrackScorecard(false)
+      if (!isPlayByTrack) {
+        setIsPlayByTrack(true)
+      }
+      setCurrentTrackIndex(trackIndex)
+      player.pause()
+      player.seek(0)
+      player.resetStats_()
+      player.play({ forceCountIn: true })
+    },
+    [isPlayByTrack, player],
+  )
+
+  const handleFinish = React.useCallback(() => {
+    setIsInterTrackScorecardOpen(false)
+    setHasDismissedTrackScorecard(true)
+    player.pause()
+    setIsCompletedModalOpen(true)
+  }, [player])
+
+  const aggregatedMetrics = useMemo(() => {
+    if (!isPlayByTrack) return null
+    const scores = Object.values(trackScores)
+    if (scores.length === 0) return null
+
+    const totalPerfect = scores.reduce((sum, s) => sum + s.perfect, 0)
+    const totalEarly = scores.reduce((sum, s) => sum + s.early, 0)
+    const totalLate = scores.reduce((sum, s) => sum + s.late, 0)
+    const totalGood = totalEarly + totalLate
+    const totalMiss = scores.reduce((sum, s) => sum + s.miss, 0)
+    const maxStreak = Math.max(0, ...scores.map((s) => s.streak))
+    const totalEvaluated = totalPerfect + totalGood + totalMiss
+    const accuracy =
+      totalEvaluated > 0
+        ? Math.round(((totalPerfect + 0.5 * totalGood) / totalEvaluated) * 100)
+        : 100
+
+    return {
+      accuracy,
+      perfect: totalPerfect,
+      early: totalEarly,
+      late: totalLate,
+      good: totalGood,
+      miss: totalMiss,
+      streak: maxStreak,
+      trackCount: scores.length,
+    }
+  }, [isPlayByTrack, trackScores])
 
   const handleCycleNextTrackPractice = React.useCallback(() => {
     if (!song) return
@@ -642,6 +902,15 @@ export default function PlaySongPage() {
                 setStatsVisible(!statsVisible)
               }}
               statsVisible={statsVisible}
+              hasMultipleTracks={hasMultipleTracks}
+              isPlayByTrack={isPlayByTrack}
+              onTogglePlayByTrack={() => {
+                setIsPlayByTrack((prev) => !prev)
+              }}
+              availableTracks={availableTracks}
+              currentTrackIndex={currentTrackIndex}
+              tracksMap={song?.tracks || {}}
+              onSelectTrack={handleSelectTrack}
             />
             <MidiModal isOpen={isMidiModalOpen} onClose={() => setMidiModal(false)} />
 
@@ -864,7 +1133,36 @@ export default function PlaySongPage() {
         onClose={handleCloseCompletionModal}
         onReplay={handleReplaySong}
         onPracticeRecommended={handlePracticeRecommended}
+        aggregatedMetrics={aggregatedMetrics}
       />
+
+      {song && availableTracks.length > 0 && currentTrackMetrics && (
+        <InterTrackScorecard
+          isOpen={isInterTrackScorecardOpen}
+          onClose={() => {
+            setIsInterTrackScorecardOpen(false)
+            setHasDismissedTrackScorecard(true)
+          }}
+          currentTrackNumber={currentTrackIndex + 1}
+          totalTracks={availableTracks.length}
+          trackName={
+            song.tracks[availableTracks[currentTrackIndex]]?.name ||
+            (song.tracks[availableTracks[currentTrackIndex]]?.instrument !== undefined
+              ? formatInstrumentName(song.tracks[availableTracks[currentTrackIndex]].instrument as any)
+              : `Track ${currentTrackIndex + 1}`)
+          }
+          trackId={availableTracks[currentTrackIndex]}
+          metrics={currentTrackMetrics}
+          isFinalTrack={currentTrackIndex === availableTracks.length - 1}
+          onPlayAgain={handlePlayAgain}
+          onNextTrack={handleNextTrack}
+          onFinish={handleFinish}
+          onSelectTrack={handleSelectTrack}
+          availableTracks={availableTracks}
+          tracksMap={song.tracks}
+          currentTrackIndex={currentTrackIndex}
+        />
+      )}
     </>
   )
 }

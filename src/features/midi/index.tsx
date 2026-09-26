@@ -128,7 +128,7 @@ export type MidiEvent = {
   channel?: number
 }
 
-function parseMidiMessage(event: MIDIMessageEvent): MidiEvent | null {
+export function parseMidiMessage(event: MIDIMessageEvent): MidiEvent | null {
   const data = event.data!
   if (!data || data.length < 2) {
     return null
@@ -233,15 +233,16 @@ export function getKeyboardBadgeForNote(midiNote: number): string | null {
   return entry.defaultLabel
 }
 
-class MidiState {
+export class MidiState {
   startWhiteIndex = 23 // Default index of C4 (60) in ALL_WHITE_MIDI
   activeCodeToMidi = new Map<string, number>()
   activeMidiToBadge = new Map<number, { code: string; defaultLabel: string }>()
-  midiOctaveDiff = 0 // Used to auto-shift physical MIDI keyboard to match song octaves
+  midiOctaveDiff = 0 // Deprecated: preserved at 0 for backward compatibility
   pressedNotes = new Map<number, { time: number; vel: number }>()
   keyPressedNotes = new Set<number>()
   listeners: Array<Function> = []
   detectedRange: { start: number; end: number } | null = null
+  detectedKeySpan: number | null = null
   observedRange: { start: number; end: number } | null = null
 
   constructor() {
@@ -399,10 +400,16 @@ class MidiState {
 
     if (found) {
       this.detectedRange = { start: min, end: max }
+      this.detectedKeySpan = max - min
+    } else if (enabledInputDevices.size > 0) {
+      this.detectedRange = this.observedRange ?? { start: 48, end: 72 }
+      this.detectedKeySpan = 24
     } else if (this.observedRange) {
       this.detectedRange = this.observedRange
+      this.detectedKeySpan = this.observedRange.end - this.observedRange.start
     } else {
       this.detectedRange = null
+      this.detectedKeySpan = null
     }
   }
 
@@ -490,6 +497,7 @@ class MidiState {
     const time = Date.now()
     this.pressedNotes.set(note, { time, vel: velocity })
     this.updateObservedRange(note)
+    this.updateActiveOctaveRange(note)
     this.notify({ note, velocity, type: 'down', time, channel })
   }
 
@@ -499,6 +507,38 @@ class MidiState {
     this.observedRange = {
       start: Math.min(observedStart, note),
       end: Math.max(observedEnd, note),
+    }
+  }
+
+  updateActiveOctaveRange(note: number) {
+    if (!this.detectedRange) {
+      if (hasConnectedMidiInputs()) {
+        const octaveStart = Math.floor(note / 12) * 12
+        const span = this.detectedKeySpan ?? 24
+        this.detectedRange = {
+          start: Math.max(0, octaveStart),
+          end: Math.min(127, octaveStart + span),
+        }
+        this.detectedKeySpan = span
+      }
+      return
+    }
+
+    const { start, end } = this.detectedRange
+    if (note < start) {
+      const octavesDown = Math.ceil((start - note) / 12)
+      const shift = octavesDown * 12
+      const newStart = Math.max(0, start - shift)
+      const span = this.detectedKeySpan ?? (end - start)
+      const newEnd = Math.min(127, newStart + span)
+      this.detectedRange = { start: newStart, end: newEnd }
+    } else if (note > end) {
+      const octavesUp = Math.ceil((note - end) / 12)
+      const shift = octavesUp * 12
+      const newEnd = Math.min(127, end + shift)
+      const span = this.detectedKeySpan ?? (end - start)
+      const newStart = Math.max(0, newEnd - span)
+      this.detectedRange = { start: newStart, end: newEnd }
     }
   }
   pressOutput(note: number, volume: number) {
@@ -547,7 +587,7 @@ if (isBrowser()) {
   window.addEventListener('keyup', (e) => midiState.handleKeyUp(e))
 }
 
-function onMidiMessage(e: MIDIMessageEvent) {
+export function onMidiMessage(e: MIDIMessageEvent) {
   if (isBrowser() && Tone.getContext().state !== 'running') {
     Tone.start()
   }
@@ -558,18 +598,19 @@ function onMidiMessage(e: MIDIMessageEvent) {
   }
 
   const { note, velocity, cc, value, type, channel } = msg
-  const bus = getAudioEffectsBus()
 
   if (type === 'on' && velocity! > 0) {
-    midiState.press(note! + midiState.midiOctaveDiff * 12, velocity!, channel)
+    midiState.press(note!, velocity!, channel)
   } else if (type === 'off' || (type === 'on' && velocity === 0)) {
-    midiState.release(note! + midiState.midiOctaveDiff * 12, channel)
+    midiState.release(note!, channel)
   } else if (type === 'pitchbend' && value !== undefined) {
+    const bus = getAudioEffectsBus()
     // value is 0 to 16383, 8192 is center
     const normalizedBend = (value - 8192) / 8192
     const semitones = normalizedBend * 12 // +/- 12 semitones pitch bend
     bus.setPitchBend(semitones)
   } else if (type === 'cc' && cc !== undefined && value !== undefined) {
+    const bus = getAudioEffectsBus()
     // Relative vs Absolute Encoder check for Arturia MiniLab 3
     let isRelative = false
     let delta = 0

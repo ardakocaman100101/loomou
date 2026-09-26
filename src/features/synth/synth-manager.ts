@@ -11,6 +11,8 @@ export class TrackAudioEngine {
   private trackConfigs: Record<number, TrackSetting> = {}
   private masterVolume = 0.3
   private keyboardVolume = 1.0
+  private backgroundVolume = 0.8
+  private backgroundTrackIds = new Set<number>()
 
   public ensureAudioContextRunning() {
     if (isBrowser() && Tone.getContext().state !== 'running') {
@@ -70,6 +72,14 @@ export class TrackAudioEngine {
     this.keyboardVolume = vol
   }
 
+  public setBackgroundVolume(vol: number) {
+    this.backgroundVolume = vol
+  }
+
+  public setBackgroundTracks(trackIds: number[]) {
+    this.backgroundTrackIds = new Set(trackIds.map(Number))
+  }
+
   public setTrackVolume(trackId: number | string, vol: number) {
     const numId = Number(trackId)
     if (this.trackConfigs[numId]) {
@@ -90,19 +100,21 @@ export class TrackAudioEngine {
   }
 
   public playTrackNote(trackId: number | string, midiNote: number, velocity = 80) {
-    if (this.masterVolume <= 0) return
-
     const numId = Number(trackId)
     const config = this.trackConfigs[numId]
     if (config && config.sound === false) {
       return
     }
 
+    const isBackground = this.backgroundTrackIds.has(numId)
+    const effectiveVol = isBackground ? this.backgroundVolume : this.masterVolume
+    if (effectiveVol <= 0) return
+
     this.ensureAudioContextRunning()
 
     const synth = this.synths.get(numId)
     if (synth) {
-      const finalVel = velocity * this.masterVolume
+      const finalVel = velocity * effectiveVol
       synth.playNote(midiNote, finalVel)
     }
   }

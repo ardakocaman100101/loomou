@@ -28,6 +28,7 @@ import {
   Drum,
   FileMusic,
   Guitar,
+  ListMusic,
   Move,
   Music,
   Pause,
@@ -441,6 +442,14 @@ export default function Studio() {
 
   const isFullySaved = isSavedToLibrary && !hasUnsavedChanges
 
+  const hasMultipleTracks = useMemo(() => {
+    const trackIds = Object.keys(tracks)
+    const trackIdsWithNotes = trackIds.filter((id) =>
+      notes.some((n) => n.track === Number(id)),
+    )
+    return trackIdsWithNotes.length > 1 || trackIds.length > 1
+  }, [tracks, notes])
+
   const processNotesAndSave = async (targetId: string) => {
     // If user explicitly dragged playhead (positive or negative), shift notes so current playhead position becomes t=0s
     let notesToProcess = notes
@@ -536,12 +545,20 @@ export default function Studio() {
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [instrumentRange, setInstrumentRange] = useState(midiState.detectedRange)
   useEffect(() => {
-    const interval = setInterval(() => {
-      if (midiState.detectedRange !== instrumentRange) {
-        setInstrumentRange(midiState.detectedRange)
+    const handleRangeUpdate = () => {
+      if (
+        midiState.detectedRange?.start !== instrumentRange?.start ||
+        midiState.detectedRange?.end !== instrumentRange?.end
+      ) {
+        setInstrumentRange(midiState.detectedRange ? { ...midiState.detectedRange } : null)
       }
-    }, 1000)
-    return () => clearInterval(interval)
+    }
+    midiState.subscribe(handleRangeUpdate)
+    const interval = setInterval(handleRangeUpdate, 500)
+    return () => {
+      midiState.unsubscribe(handleRangeUpdate)
+      clearInterval(interval)
+    }
   }, [instrumentRange])
 
   // History for Undo/Redo
@@ -597,35 +614,9 @@ export default function Studio() {
       songEnd = maxN
     }
 
-    // 2. Play Mode getKeyboardRange logic: adapt octaves based on hardware MIDI + song range
-    let k = 0
-    if (instrumentRange) {
-      const instStart = instrumentRange.start
-      const instEnd = instrumentRange.end
-
-      if (songStart < instStart || songEnd > instEnd) {
-        const shiftDown = Math.ceil((instStart - songStart) / 12)
-        const shiftUp = Math.ceil((songEnd - instEnd) / 12)
-
-        if (shiftDown > 0 && shiftUp <= 0) {
-          k = -shiftDown
-        } else if (shiftUp > 0 && shiftDown <= 0) {
-          k = shiftUp
-        } else {
-          const songCenter = (songStart + songEnd) / 2
-          const instrumentCenter = (instStart + instEnd) / 2
-          k = Math.round((songCenter - instrumentCenter) / 12)
-        }
-      }
-    }
-
+    // 2. Piano range logic: determine octaves strictly according to song notes
     let displayStart = songStart
     let displayEnd = songEnd
-
-    if (instrumentRange) {
-      displayStart = Math.min(songStart, instrumentRange.start + k * 12)
-      displayEnd = Math.max(songEnd, instrumentRange.end + k * 12)
-    }
 
     // Snap to nearest C octaves
     let minM = Math.floor(displayStart / 12) * 12
@@ -1906,7 +1897,7 @@ export default function Studio() {
   }
 
   // Save changes and return to Practice/Play mode
-  const handleSaveAndPractice = async (practiceTrackId?: number) => {
+  const handleSaveAndPractice = async (practiceTrackId?: number, isPlayByTrack?: boolean) => {
     stopPlayback()
 
     const targetId = id || crypto.randomUUID()
@@ -1936,6 +1927,9 @@ export default function Studio() {
       queryParams.set('source', targetSource)
       if (practiceTrackId !== undefined) {
         queryParams.set('practiceTrackId', String(practiceTrackId))
+      }
+      if (isPlayByTrack) {
+        queryParams.set('playByTrack', 'true')
       }
       navigate(`/play?${queryParams.toString()}`)
     } catch (e) {
@@ -2276,6 +2270,18 @@ export default function Studio() {
             <Download className="h-4.5 w-4.5 text-[#cbc3d7]" />
             <span>Export</span>
           </button>
+
+          {/* Play by Track Button (only for multi-track songs) */}
+          {hasMultipleTracks && (
+            <button
+              onClick={() => handleSaveAndPractice(undefined, true)}
+              title="Play by Track"
+              className="flex h-[72px] cursor-pointer items-center justify-center gap-1.5 rounded-xl border border-[#6c79f0]/40 bg-[#6c79f0]/15 px-3.5 py-2 text-xs font-bold text-[#9ba4ff] shadow-sm transition-all hover:bg-[#6c79f0]/25 hover:text-white active:scale-95"
+            >
+              <ListMusic className="h-5 w-5" />
+              <span>Play by Track</span>
+            </button>
+          )}
 
           {/* Play Button */}
           <button

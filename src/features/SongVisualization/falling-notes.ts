@@ -169,41 +169,12 @@ function deriveState(givenState: GivenState): State {
 export function getKeyboardRange(
   songStart: number,
   songEnd: number,
-  instrumentRange: { start: number; end: number } | null,
+  _instrumentRange?: { start: number; end: number } | null,
 ) {
-  let k = 0
-  if (instrumentRange) {
-    const instStart = instrumentRange.start
-    const instEnd = instrumentRange.end
+  midiState.midiOctaveDiff = 0
 
-    if (songStart < instStart || songEnd > instEnd) {
-      const shiftDown = Math.ceil((instStart - songStart) / 12)
-      const shiftUp = Math.ceil((songEnd - instEnd) / 12)
-
-      if (shiftDown > 0 && shiftUp <= 0) {
-        k = -shiftDown
-      } else if (shiftUp > 0 && shiftDown <= 0) {
-        k = shiftUp
-      } else {
-        const songCenter = (songStart + songEnd) / 2
-        const instrumentCenter = (instStart + instEnd) / 2
-        k = Math.round((songCenter - instrumentCenter) / 12)
-      }
-    }
-  }
-
-  midiState.midiOctaveDiff = k
-
-  let displayStart = songStart
-  let displayEnd = songEnd
-
-  if (instrumentRange) {
-    displayStart = Math.min(songStart, instrumentRange.start + k * 12)
-    displayEnd = Math.max(songEnd, instrumentRange.end + k * 12)
-  }
-
-  let start = Math.floor(displayStart / 12) * 12
-  let end = Math.ceil(displayEnd / 12) * 12
+  let start = Math.floor(songStart / 12) * 12
+  let end = Math.ceil(songEnd / 12) * 12
 
   if (end - start < 12) end = start + 12
 
