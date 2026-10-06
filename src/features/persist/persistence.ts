@@ -294,6 +294,33 @@ export function getUploadedFile(id: string): File | undefined {
   return store.get(uploadedFilesAtom).get(id)
 }
 
+export async function deleteUploadedSong(id: string): Promise<void> {
+  const currentUploaded = store.get(uploadedSongsAtom)
+  const newUploaded = currentUploaded.filter((s) => s.id !== id)
+  store.set(uploadedSongsAtom, newUploaded)
+  try {
+    if (typeof indexedDB !== 'undefined') {
+      await idb.set('UPLOADED_SONGS', newUploaded)
+    }
+  } catch (_) {}
+
+  const currentFiles = store.get(uploadedFilesAtom)
+  if (currentFiles.has(id)) {
+    const newFiles = new Map(currentFiles)
+    newFiles.delete(id)
+    store.set(uploadedFilesAtom, newFiles)
+  }
+
+  Storage.delete(id)
+  Storage.delete(`${id}/settings`)
+  Storage.delete(`${id}/edited_midi`)
+  try {
+    if (typeof indexedDB !== 'undefined') {
+      await idb.del(`SONG_DATA_${id}`)
+    }
+  } catch (_) {}
+}
+
 export const isScanningAtom = jotai.atom<false | Promise<void>>(false)
 
 export async function scanFolders() {

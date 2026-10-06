@@ -48,6 +48,9 @@ export default class LocalStorageWrapper {
 
   static delete(key: string) {
     this.cache.delete(key)
+    if (!isBrowser()) {
+      return
+    }
     try {
       localStorage.removeItem(key)
     } catch (e) {

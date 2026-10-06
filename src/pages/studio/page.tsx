@@ -614,9 +614,22 @@ export default function Studio() {
       songEnd = maxN
     }
 
-    // 2. Piano range logic: determine octaves strictly according to song notes
+    // 2. Play Mode getKeyboardRange logic: adapt octaves based on hardware MIDI + song range
     let displayStart = songStart
     let displayEnd = songEnd
+
+    if (instrumentRange) {
+      displayStart = Math.min(songStart, instrumentRange.start)
+      displayEnd = Math.max(songEnd, instrumentRange.end)
+    }
+
+    const pressedNotes = midiState.getPressedNotes()
+    if (pressedNotes && pressedNotes.size > 0) {
+      for (const note of pressedNotes.keys()) {
+        displayStart = Math.min(displayStart, note)
+        displayEnd = Math.max(displayEnd, note)
+      }
+    }
 
     // Snap to nearest C octaves
     let minM = Math.floor(displayStart / 12) * 12

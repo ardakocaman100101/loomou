@@ -9,5 +9,6 @@ export {
   uploadedSongsAtom,
   uploadedFilesAtom,
   addUploadedSongs,
+  deleteUploadedSong,
   getUploadedFile,
 } from './persistence'

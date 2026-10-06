@@ -1,6 +1,6 @@
 import { UploadMidi } from '@/components'
 import { useSongManifest } from '@/features/data/library'
-import { getUploadedSong } from '@/features/persist/persistence'
+import { deleteUploadedSong, getUploadedSong } from '@/features/persist/persistence'
 import Storage from '@/features/persist/storage'
 import { Logo } from '@/icons'
 import { SongMetadata, Tracks } from '@/types'
@@ -23,6 +23,7 @@ import {
   Sliders,
   Sparkles,
   Sun,
+  Trash2,
   Upload,
   Users,
   X,
@@ -223,6 +224,37 @@ export default function LibraryPage() {
       } catch (_) {}
     }
     setEditingTrack(null)
+  }
+
+  const handleDeleteUpload = async (songId: string) => {
+    setExpandedSongIds((prev) => {
+      const next = new Set(prev)
+      next.delete(songId)
+      return next
+    })
+    setCustomTitles((prev) => {
+      if (!prev[songId]) return prev
+      const next = { ...prev }
+      delete next[songId]
+      Storage.set('loomo_custom_titles', next)
+      return next
+    })
+    setCustomTrackNames((prev) => {
+      if (!prev[songId]) return prev
+      const next = { ...prev }
+      delete next[songId]
+      Storage.set('loomo_custom_track_names', next)
+      return next
+    })
+    setCustomTagsMap((prev) => {
+      if (!prev[songId]) return prev
+      const next = { ...prev }
+      delete next[songId]
+      Storage.set('loomo_custom_tags', next)
+      return next
+    })
+
+    await deleteUploadedSong(songId)
   }
 
   // Filter songs based on search query and active preset chips
@@ -600,6 +632,24 @@ export default function LibraryPage() {
                           >
                             <Sliders className="h-5 w-5" />
                           </button>
+
+                          {/* Delete Button (50x50px Glass Border, Uploads only) */}
+                          {song.source === 'upload' && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDeleteUpload(song.id)
+                              }}
+                              className={`flex h-[48px] w-[48px] cursor-pointer items-center justify-center rounded-full border transition-all hover:scale-105 active:scale-95 md:h-[50px] md:w-[50px] ${
+                                isDarkMode
+                                  ? 'border-white/10 bg-[#120D24]/60 text-[#F5F5F8] hover:border-red-500/50 hover:bg-red-500/15 hover:text-red-400'
+                                  : 'border-[#1B1630]/[0.1] bg-[#F8F8FE]/80 text-[#1B1630] hover:border-red-500/40 hover:bg-red-500/10 hover:text-red-600'
+                              }`}
+                              title="Delete Upload"
+                            >
+                              <Trash2 className="h-5 w-5" />
+                            </button>
+                          )}
                         </div>
                       </div>
                     </div>
