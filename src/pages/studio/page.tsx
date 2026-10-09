@@ -343,6 +343,7 @@ export default function Studio() {
   const [scrolledTime, setScrolledTime] = useState<number | null>(null)
   const [mutedTracks, setMutedTracks] = useState<Set<number>>(new Set())
   const [soloTracks, setSoloTracks] = useState<Set<number>>(new Set())
+  const loadedSongIdRef = useRef<string | null>(null)
 
   // Song Tags state
   const [songTags, setSongTags] = useState<string[]>([])
@@ -374,6 +375,7 @@ export default function Studio() {
   }, [showEffectsPopover])
 
   const savedSnapshotRef = useRef<string>('')
+  const [savedSnapshot, setSavedSnapshot] = useState<string>('')
   const playbackTimeRef = useRef<number>(0)
   const playbackIntervalRef = useRef<number | null>(null)
   const startTimeRef = useRef<number>(0)
@@ -432,13 +434,14 @@ export default function Studio() {
   }, [id])
 
   const hasUnsavedChanges = useMemo(() => {
-    if (!savedSnapshotRef.current) return false
+    const snapshot = savedSnapshot || savedSnapshotRef.current
+    if (!snapshot) return false
     const current = JSON.stringify({ notes, tracks, songName, bpm, songTags })
-    const isModified = current !== savedSnapshotRef.current
+    const isModified = current !== snapshot
     const isPlayheadManuallyMoved =
       hasManuallyMovedPlayheadRef.current && Math.abs(playbackTime) > 0.05
     return isModified || isPlayheadManuallyMoved
-  }, [notes, tracks, songName, bpm, songTags, playbackTime])
+  }, [notes, tracks, songName, bpm, songTags, playbackTime, savedSnapshot])
 
   const isFullySaved = isSavedToLibrary && !hasUnsavedChanges
 
@@ -487,6 +490,7 @@ export default function Studio() {
 
     const songToSave = {
       ...parsedSong,
+      tracks, // Preserve tracks with custom names and hand assignments
       notes: notesToProcess,
       secondsToTicks: undefined,
       ticksToSeconds: undefined,
@@ -499,6 +503,7 @@ export default function Studio() {
         const predicted = await predictSongFingerings(ensureSongFunctions(songToSave as any))
         songWithFingerings = {
           ...predicted,
+          tracks,
           secondsToTicks: undefined,
           ticksToSeconds: undefined,
         }
@@ -509,6 +514,7 @@ export default function Studio() {
     }
     const songToSaveFinal = {
       ...songWithFingerings,
+      tracks,
       tags: songTags,
     }
     await idb.set(`SONG_DATA_${targetId}`, songToSaveFinal)
@@ -519,14 +525,35 @@ export default function Studio() {
     allCustomTags[targetId] = songTags
     Storage.set('loomo_custom_tags', allCustomTags)
 
+    // Persist custom track names to loomo_custom_track_names
+    const allCustomTrackNames = Storage.get<Record<string, Record<number, string>>>('loomo_custom_track_names') || {}
+    const songCustomTracks: Record<number, string> = { ...(allCustomTrackNames[targetId] || {}) }
+    Object.entries(tracks).forEach(([tid, t]) => {
+      if (t.name) {
+        songCustomTracks[Number(tid)] = t.name
+      }
+    })
+    allCustomTrackNames[targetId] = songCustomTracks
+    Storage.set('loomo_custom_track_names', allCustomTrackNames)
+
+    // Update SWR cache
+    const songWithFunctions = ensureSongFunctions(songToSaveFinal as any)
+    mutate([targetId, source || 'upload'], songWithFunctions, false)
+    if (id && id !== targetId) {
+      mutate([id, source || 'upload'], songWithFunctions, false)
+    }
+
     const finalNotes = songWithFingerings.notes || notesToProcess
-    savedSnapshotRef.current = JSON.stringify({
+    setNotes(finalNotes)
+    const newSnapshot = JSON.stringify({
       notes: finalNotes,
       tracks,
       songName,
       bpm,
       songTags,
     })
+    savedSnapshotRef.current = newSnapshot
+    setSavedSnapshot(newSnapshot)
     setIsSavedToLibrary(true)
 
     return { midiBytes, songWithFingerings: songToSaveFinal }
@@ -535,7 +562,11 @@ export default function Studio() {
   const handleSaveToLibrary = async () => {
     const targetId = id || crypto.randomUUID()
     try {
+      loadedSongIdRef.current = targetId
       await processNotesAndSave(targetId)
+      if (!id) {
+        navigate(`/studio?id=${targetId}&source=upload`, { replace: true })
+      }
     } catch (e) {
       console.error('Failed to save to library', e)
       alert('Failed to save to library. Please check console.')
@@ -1067,7 +1098,8 @@ export default function Studio() {
 
   // Load song into local state if editing an existing song
   useEffect(() => {
-    if (loadedSong) {
+    if (loadedSong && loadedSongIdRef.current !== (id || (loadedSong as any).id || 'loaded')) {
+      loadedSongIdRef.current = id || (loadedSong as any).id || 'loaded'
       // Reset scroll so it re-initializes with the real notes after this render
       scrollInitializedRef.current = false
       const initialName = songMeta?.title || 'Untitled Song'
@@ -1084,6 +1116,22 @@ export default function Studio() {
         normalizedTracks[0] = normalizedTracks[1]
         delete normalizedTracks[1]
         normalizedNotes = normalizedNotes.map((n) => (n.track === 1 ? { ...n, track: 0 } : n))
+      }
+
+      // Merge custom track names from storage if any
+      if (id) {
+        const customTrackNames = Storage.get<Record<string, Record<number, string>>>('loomo_custom_track_names') || {}
+        if (customTrackNames[id]) {
+          Object.entries(customTrackNames[id]).forEach(([tid, name]) => {
+            const trackNum = Number(tid)
+            if (normalizedTracks[trackNum] && name) {
+              normalizedTracks[trackNum] = {
+                ...normalizedTracks[trackNum],
+                name,
+              }
+            }
+          })
+        }
       }
 
       const initialBpm = loadedSong.bpms?.[0]?.bpm || 120
@@ -1104,13 +1152,15 @@ export default function Studio() {
       }
       setSongTags(initialTags)
 
-      savedSnapshotRef.current = JSON.stringify({
+      const initialSnapshot = JSON.stringify({
         notes: normalizedNotes,
         tracks: normalizedTracks,
         songName: initialName,
         bpm: initialBpm,
         songTags: initialTags,
       })
+      savedSnapshotRef.current = initialSnapshot
+      setSavedSnapshot(initialSnapshot)
 
       // Initialize history
       const initialHistory = [
@@ -1118,7 +1168,8 @@ export default function Studio() {
       ]
       setHistory(initialHistory)
       setHistoryIndex(0)
-    } else if (!id) {
+    } else if (!id && loadedSongIdRef.current !== 'new_sketch') {
+      loadedSongIdRef.current = 'new_sketch'
       // Setup blank sketch history
       const initialNotes: SongNote[] = []
       const initialTracks = {
@@ -1129,13 +1180,15 @@ export default function Studio() {
         },
       }
       setSongTags([])
-      savedSnapshotRef.current = JSON.stringify({
+      const initialSnapshot = JSON.stringify({
         notes: initialNotes,
         tracks: initialTracks,
         songName: 'Untitled Song',
         bpm: 120,
         songTags: [],
       })
+      savedSnapshotRef.current = initialSnapshot
+      setSavedSnapshot(initialSnapshot)
       setHistory([{ notes: initialNotes, tracks: initialTracks }])
       setHistoryIndex(0)
     }
@@ -1915,6 +1968,7 @@ export default function Studio() {
 
     const targetId = id || crypto.randomUUID()
     const targetSource = source || 'upload'
+    loadedSongIdRef.current = targetId
 
     try {
       const { midiBytes, songWithFingerings } = await processNotesAndSave(targetId)
@@ -1929,6 +1983,7 @@ export default function Studio() {
       const parsedSong = parseMidi(midiBytes as any)
       const songWithFunctions = ensureSongFunctions({
         ...parsedSong,
+        tracks,
         notes: songWithFingerings.notes,
       } as Song)
 

@@ -5,8 +5,25 @@ import * as idb from 'idb-keyval'
 import type { SWRResponse } from 'swr'
 import { mutate } from 'swr'
 import useSWRImmutable from 'swr/immutable'
+import Storage from '../persist/storage'
 import * as persistence from '../persist/persistence'
 import { predictSongFingerings } from '../theory/fingering'
+
+function applyCustomTrackNames(id: string, song: Song): Song {
+  const customTrackNames = Storage.get<Record<string, Record<number, string>>>('loomo_custom_track_names') || {}
+  if (customTrackNames[id] && song.tracks) {
+    Object.entries(customTrackNames[id]).forEach(([tid, name]) => {
+      const trackNum = Number(tid)
+      if (song.tracks[trackNum] && name) {
+        song.tracks[trackNum] = {
+          ...song.tracks[trackNum],
+          name,
+        }
+      }
+    })
+  }
+  return song
+}
 
 async function handleSong(response: Response): Promise<Song> {
   return response.arrayBuffer().then((buf) => parseMidi(new Uint8Array(buf)))
@@ -94,6 +111,7 @@ async function fetchSong(id: string, source: SongSource): Promise<Song> {
   // 1. Check IndexedDB/Storage first to load previously computed fingerings or sketch edits
   const cached = await persistence.getUploadedSong(id)
   if (cached) {
+    applyCustomTrackNames(id, cached)
     const songWithFunctions = ensureSongFunctions(cached)
     // Run quiet check/prediction if it's missing fingerings (e.g. from early sketches/uploads)
     triggerFingeringPrediction(id, source, songWithFunctions)
@@ -129,6 +147,7 @@ async function fetchSong(id: string, source: SongSource): Promise<Song> {
     return Promise.reject(new Error(`Could not get song for ${id}, ${source}`))
   }
 
+  applyCustomTrackNames(id, song)
   const songWithFunctions = ensureSongFunctions(song)
   // 2. Trigger fingering prediction quietly in parallel
   triggerFingeringPrediction(id, source, songWithFunctions)

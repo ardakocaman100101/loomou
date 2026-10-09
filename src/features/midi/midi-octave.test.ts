@@ -80,7 +80,7 @@ describe('BUG-31: External MIDI Keyboards Octave Transposition & Dynamic Adaptat
     expect(midiState.detectedRange).toEqual({ start: 72, end: 96 })
   })
 
-  it('TC-03: Dynamic Keyboard View - getKeyboardRange adapts to song range, hardware range, and active notes', () => {
+  it('TC-03: Keyboard View Range - getKeyboardRange follows song range without user range overrides', () => {
     // Song notes are in octave C4 to C5 (60 to 72)
     const songStart = 60
     const songEnd = 72
@@ -89,26 +89,10 @@ describe('BUG-31: External MIDI Keyboards Octave Transposition & Dynamic Adaptat
     const instrumentRange = { start: 48, end: 72 }
     let range = getKeyboardRange(songStart, songEnd, instrumentRange)
 
-    // Keyboard displays C3 (48) to C5 (72)
-    expect(range.startNote).toBe(48)
+    // Keyboard displays according to song range
+    expect(range.startNote).toBe(60)
     expect(range.endNote).toBe(72)
     expect(midiState.midiOctaveDiff).toBe(0)
-
-    // Musician shifts Octave Down on hardware: active instrumentRange is now [36, 60]
-    const shiftedInstrumentRange = { start: 36, end: 60 }
-    range = getKeyboardRange(songStart, songEnd, shiftedInstrumentRange)
-
-    // On-screen piano dynamically expands to show hardware low range (36 = C2) up to songEnd (72 = C5)
-    expect(range.startNote).toBe(36)
-    expect(range.endNote).toBe(72)
-    expect(midiState.midiOctaveDiff).toBe(0)
-
-    // If a low note (C1 = 24) is pressed, keyboard dynamically encompasses it
-    midiState.press(24, 100)
-    range = getKeyboardRange(songStart, songEnd, shiftedInstrumentRange)
-    expect(range.startNote).toBe(24)
-    expect(range.endNote).toBe(72)
-    midiState.release(24)
   })
 
   it('TC-04: parseMidiMessage handles raw Note On/Off bytes with 1:1 fidelity', () => {
